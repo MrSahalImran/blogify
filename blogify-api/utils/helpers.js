@@ -1,3 +1,5 @@
+import jwt from "jsonwebtoken";
+
 export const UserRoleEnum = {
   ADMIN: "admin",
   USER: "user",
@@ -20,3 +22,15 @@ export const UserGenderEnum = {
 };
 
 export const AvailableGender = Object.values(UserGenderEnum);
+
+export const generatetoken = (user) => {
+  const payload = {
+    id: user.id,
+  };
+
+  const token = jwt.sign(payload, process.env.JWT_SECRET, {
+    expiresIn: "1d",
+  });
+
+  return token;
+};

@@ -6,7 +6,7 @@ import {
   AvailableUserRole,
   UserGenderEnum,
   UserRoleEnum,
-} from "../utils/helpers.js";
+} from "../../utils/helpers.js";
 import bcrypt from "bcryptjs";
 
 export const userSchema = new mongoose.Schema(
@@ -103,12 +103,3 @@ export const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
-userSchema.pre("save", async function (next) {
-  if (this.isModified("password")) {
-    this.password = await bcrypt.hash(this.password, 10);
-    next();
-  }
-});
-
-export const User = mongoose.model("User", userSchema);
