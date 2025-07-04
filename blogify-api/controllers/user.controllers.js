@@ -67,12 +67,29 @@ export const login = asyncHandler(async function (req, res) {
     role: user.role,
   };
 
-  res
-    .status(200)
-    .json(
-      new ApiResponse(200, "user login", {
-        userToSend,
-        token: generatetoken(user),
-      })
-    );
+  res.status(200).json(
+    new ApiResponse(200, "user login", {
+      userToSend,
+      token: generatetoken(user),
+    })
+  );
+});
+
+export const getProfile = asyncHandler(async function (req, res) {
+  const userId = req.user._id;
+
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw new ApiError(401, "User not found");
+  }
+
+  const userToSend = {
+    _id: user._id.toString(),
+    email: user.email,
+    username: user.username,
+    role: user.role,
+  };
+
+  res.status(200).json(new ApiResponse(200, "Profile Fetched", { userToSend }));
 });
