@@ -26,7 +26,7 @@ export const createCategory = asyncHandler(async function (req, res) {
 
 export const getCategories = asyncHandler(async function (req, res) {
   const categories = await Category.find().select(
-    "name author _id shares createdAt"
+    "name author _id shares createdAt posts"
   );
 
   if (categories.length === 0 || !categories) {
