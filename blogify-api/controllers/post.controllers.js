@@ -54,3 +54,54 @@ export const createPost = asyncHandler(async function (req, res) {
 
   res.status(201).json(new ApiResponse(201, "Post created successfully", post));
 });
+
+export const getPosts = asyncHandler(async function (req, res) {
+  const posts = await Post.find({});
+
+  if (!posts || posts.length === 0) {
+    throw new ApiError(404, "Cannot find any posts");
+  }
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, "Posts fetched successfully", posts));
+});
+
+export const getPostById = asyncHandler(async function (req, res) {
+  const { id } = req.params;
+
+  const post = await Post.findById(id);
+
+  if (!post) {
+    throw new ApiError(404, "Cannot find post");
+  }
+
+  res.status(200).json(new ApiResponse(200, "Post fetched successfully", post));
+});
+
+export const deletePostById = asyncHandler(async function (req, res) {
+  const { id } = req.params;
+
+  const post = await Post.findByIdAndDelete(id);
+
+  if (!post) {
+    throw new ApiError(404, "Cannot find post");
+  }
+
+  res.status(200).json(new ApiResponse(200, "Post deleted successfully"));
+});
+
+export const updatePostById = asyncHandler(async function (req, res) {
+  const { id } = req.params;
+
+  const post = await Post.findByIdAndUpdate(id, req.body, {
+    new: true,
+    runValidators: true,
+  });
+
+  if (!post) {
+    throw new ApiError(404, "Cannot find post");
+  }
+
+  res.status(200).json(new ApiResponse(200, "Post updated successfully", post));
+});
