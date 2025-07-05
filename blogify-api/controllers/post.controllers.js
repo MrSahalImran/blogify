@@ -56,7 +56,7 @@ export const createPost = asyncHandler(async function (req, res) {
 });
 
 export const getPosts = asyncHandler(async function (req, res) {
-  const posts = await Post.find({});
+  const posts = await Post.find({}).populate("comments");
 
   if (!posts || posts.length === 0) {
     throw new ApiError(404, "Cannot find any posts");
@@ -70,7 +70,7 @@ export const getPosts = asyncHandler(async function (req, res) {
 export const getPostById = asyncHandler(async function (req, res) {
   const { id } = req.params;
 
-  const post = await Post.findById(id);
+  const post = await Post.findById(id).populate("comments");
 
   if (!post) {
     throw new ApiError(404, "Cannot find post");
