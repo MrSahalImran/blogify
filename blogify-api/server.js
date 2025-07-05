@@ -4,6 +4,7 @@ import connectDB from "./config/db.js";
 import userRouter from "./routes/user.routes.js";
 import categoryRouter from "./routes/category.routes.js";
 import postsRouter from "./routes/posts.routes.js";
+import commentRouter from "./routes/comment.routes.js";
 
 dotenv.config();
 const PORT = process.env.PORT || 9080;
@@ -17,6 +18,7 @@ app.use(express.json());
 app.use("/api/v1/user", userRouter);
 app.use("/api/v1/categories", categoryRouter);
 app.use("/api/v1/posts", postsRouter);
+app.use("/api/v1/comments", commentRouter);
 
 app.listen(PORT, () => {
   console.log(`Server is running on Port: ${PORT}`);
