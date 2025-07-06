@@ -4,7 +4,7 @@ import { ApiResponse } from "../utils/api-response.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { generatetoken } from "../utils/helpers.js";
 
-export const register = asyncHandler(async (req, res) => {
+export const register = asyncHandler(async function (req, res) {
   const { username, password, email } = req.body;
 
   if (!username || !password || !email) {
@@ -84,12 +84,81 @@ export const getProfile = asyncHandler(async function (req, res) {
     throw new ApiError(401, "User not found");
   }
 
-  const userToSend = {
-    _id: user._id.toString(),
-    email: user.email,
-    username: user.username,
-    role: user.role,
-  };
+  // const userToSend = {
+  //   _id: user._id.toString(),
+  //   email: user.email,
+  //   username: user.username,
+  //   role: user.role,
+  // };
 
-  res.status(200).json(new ApiResponse(200, "Profile Fetched", { userToSend }));
+  res.status(200).json(new ApiResponse(200, "Profile Fetched", user));
+});
+
+export const blockUser = asyncHandler(async function (req, res) {
+  const { userIdToBlock } = req.params;
+
+  const userToBlock = await User.findById(userIdToBlock);
+
+  if (!userToBlock) {
+    throw new ApiError(404, "User to block not found");
+  }
+
+  const userId = req.user._id;
+
+  if (userId.toString() === userIdToBlock.toString()) {
+    throw new ApiError(400, "Cannot block yourself");
+  }
+
+  const currentUser = await User.findById(userId);
+
+  if (!currentUser) {
+    throw new ApiError(404, "User not found");
+  }
+
+  if (currentUser?.blockedUsers?.includes(userIdToBlock)) {
+    throw new ApiError(400, "User already blocked");
+  }
+
+  await User.findByIdAndUpdate(
+    userId,
+    { $push: { blockedUsers: userIdToBlock } },
+    { new: true }
+  );
+
+  res.status(200).json(new ApiResponse(200, "User blocked successfully"));
+});
+
+export const unBlockUser = asyncHandler(async function (req, res) {
+  const { userIdToUnblock } = req.params;
+
+  const userToUnBlock = await User.findById(userIdToUnblock);
+
+  if (!userToUnBlock) {
+    throw new ApiError(404, "User to unblock not found");
+  }
+
+  const userId = req.user._id;
+
+  if (userId.toString() === userIdToUnblock.toString()) {
+    throw new ApiError(400, "Cannot unblock yourself");
+  }
+
+  const currentUser = await User.findById(userId);
+
+  if (!currentUser?.blockedUsers?.includes(userIdToUnblock)) {
+    throw new ApiError(404, "User is not blocked");
+  }
+
+  const updatedUser = await User.findByIdAndUpdate(
+    userId,
+    {
+      $pull: {
+        blockedUsers: userIdToUnblock,
+      },
+    },
+    { new: true }
+  );
+  res
+    .status(200)
+    .json(new ApiResponse(200, "User unblock successfully", updatedUser));
 });
