@@ -162,3 +162,39 @@ export const unBlockUser = asyncHandler(async function (req, res) {
     .status(200)
     .json(new ApiResponse(200, "User unblock successfully", updatedUser));
 });
+
+export const profileViewers = asyncHandler(async function (req, res) {
+  const { userProfileId } = req.params;
+
+  const userProfile = await User.findById(userProfileId);
+
+  if (!userProfile) {
+    throw new ApiError(404, "User to view profile not found");
+  }
+
+  const userId = req.user._id;
+
+  const currentUser = await User.findById(userId);
+
+  if (!currentUser) {
+    throw new ApiError(404, "User not found");
+  }
+
+  if (!currentUser?.profileviewer?.includes(userProfileId)) {
+    throw new ApiError("You have already viewed this profile");
+  }
+
+  const updatedUser = await User.findByIdAndUpdate(userId, {
+    $push: {
+      profileviewer: userId,
+    },
+  });
+
+  if (!updatedUser) {
+    throw new ApiError(400, "Could not perform action");
+  }
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, "You have successfully viewed profile"));
+});
