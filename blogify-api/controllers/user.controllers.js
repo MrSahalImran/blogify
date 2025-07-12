@@ -198,3 +198,76 @@ export const profileViewers = asyncHandler(async function (req, res) {
     .status(200)
     .json(new ApiResponse(200, "You have successfully viewed profile"));
 });
+
+export const followingUser = asyncHandler(async function (req, res) {
+  const currentUserId = req.user._id;
+  const { userToFollowId } = req.params;
+
+  if (currentUserId.toString() === userToFollowId.toString()) {
+    throw new ApiError(400, "Cannot follow yourself");
+  }
+
+  const userToFollow = await User.findById(userToFollowId);
+  if (!userToFollow) {
+    throw new ApiError(404, "User to follow not found");
+  }
+
+  const currentUser = await User.findById(currentUserId);
+  if (!currentUser) {
+    throw new ApiError(404, "User not found");
+  }
+
+  const alreadyFollowing = currentUser.following.includes(userToFollowId);
+  if (alreadyFollowing) {
+    throw new ApiError(400, "Already following this user");
+  }
+
+  await User.findByIdAndUpdate(
+    currentUserId,
+    {
+      $addToSet: { following: userToFollowId },
+    },
+    { new: true }
+  );
+
+  await User.findByIdAndUpdate(
+    userToFollowId,
+    {
+      $addToSet: { followers: currentUserId },
+    },
+    { new: true }
+  );
+
+  res.status(200).json(new ApiResponse(200, "User followed successfully"));
+});
+
+export const unFollowingUser = asyncHandler(async function (req, res) {
+  const currentUserId = req.user._id;
+  const { userToUnfollowId } = req.params;
+
+  if (currentUserId.toString() === userToUnfollowId.toString()) {
+    throw new ApiError(400, "Cannot unfollow yourself");
+  }
+
+  const userToUnfollow = await User.findById(userToUnfollowId);
+
+  if (!userToUnfollow) {
+    throw new ApiError(404, "User to unfollow not found");
+  }
+
+  const currentUser = await User.findById(currentUserId);
+
+  if (!currentUser) {
+    throw new ApiError(404, "User not found");
+  }
+
+  await User.findByIdAndUpdate(currentUserId, {
+    $pull: { following: userToUnfollowId },
+  });
+
+  await User.findByIdAndUpdate(userToUnfollowId, {
+    $pull: { followers: currentUserId },
+  });
+
+  res.status(200).json(new ApiResponse(200, "User unfollowed successfully"));
+});
