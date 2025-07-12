@@ -1,8 +1,10 @@
+import crypto from "crypto";
 import { User } from "../models/User/user.js";
 import { ApiError } from "../utils/api-errors.js";
 import { ApiResponse } from "../utils/api-response.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { generatetoken } from "../utils/helpers.js";
+import { sendEmail } from "../utils/send-mail.js";
 
 export const register = asyncHandler(async function (req, res) {
   const { username, password, email } = req.body;
@@ -261,6 +263,12 @@ export const unFollowingUser = asyncHandler(async function (req, res) {
     throw new ApiError(404, "User not found");
   }
 
+  const alreadyFollowing = currentUser.following.includes(userToUnfollowId);
+
+  if (!alreadyFollowing) {
+    throw new ApiError(400, "Not following this user");
+  }
+
   await User.findByIdAndUpdate(currentUserId, {
     $pull: { following: userToUnfollowId },
   });
@@ -270,4 +278,75 @@ export const unFollowingUser = asyncHandler(async function (req, res) {
   });
 
   res.status(200).json(new ApiResponse(200, "User unfollowed successfully"));
+});
+
+export const forgotPassword = asyncHandler(async function (req, res) {
+  const { email } = req.body;
+
+  if (!email) {
+    throw new ApiError(400, "invalid inputs");
+  }
+
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  if (!user.isVerified) {
+    throw new ApiError(403, "Account not verified");
+  }
+
+  const { resetToken, hashedToken, tokenExpiry } =
+    await user.generateResetPasswordToken();
+
+  user.passwordResetToken = hashedToken;
+  user.passwordResetExpiry = tokenExpiry;
+
+  await user.save();
+
+  await sendEmail("sahaljes@gmail.com", user.username, resetToken);
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, "Password reset email sent successfully"));
+});
+
+export const resetPassword = asyncHandler(async function (req, res) {
+  const { token } = req.params;
+
+  if (!token) {
+    throw new ApiError(400, "Invalid Token");
+  }
+
+  const { newPassword, confirmPassword } = req.body;
+
+  if (!newPassword || !confirmPassword) {
+    throw new ApiError(400, "Invalid inputs");
+  }
+
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+  const user = await User.findOne({
+    passwordResetToken: hashedToken,
+    passwordResetExpiry: {
+      $gt: Date.now(),
+    },
+  });
+
+  if (!user) {
+    throw new ApiError("Invalid token or token expired");
+  }
+
+  if (!user.isVerified) {
+    throw new ApiError(403, "Account not verified");
+  }
+
+  user.password = confirmPassword;
+  user.passwordResetExpiry = undefined;
+  user.passwordResetToken = undefined;
+
+  await user.save();
+
+  res.status(200).json(new ApiResponse(200, "Password reset successfully"));
 });
