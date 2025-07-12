@@ -32,3 +32,27 @@ export const isLoggedIn = asyncHandler(async function (req, res, next) {
     throw new ApiError(401, "Invalid or expired token");
   }
 });
+
+export const checkAccountVerification = asyncHandler(async function (
+  req,
+  res,
+  next
+) {
+  const userId = req.user?._id;
+
+  if (!userId) {
+    throw new ApiError(401, "User not authenticated");
+  }
+
+  const user = await User.findById(userId).select("isVerified");
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  if (!user.isVerified) {
+    throw new ApiError(403, "Account not verified");
+  }
+
+  next();
+});

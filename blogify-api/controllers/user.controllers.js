@@ -1,10 +1,16 @@
+import crypto from "crypto";
 import { User } from "../models/User/user.js";
 import { ApiError } from "../utils/api-errors.js";
 import { ApiResponse } from "../utils/api-response.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { generatetoken } from "../utils/helpers.js";
+import {
+  emailVerificationContent,
+  forgotPasswordContent,
+  sendEmail,
+} from "../utils/send-mail.js";
 
-export const register = asyncHandler(async (req, res) => {
+export const register = asyncHandler(async function (req, res) {
   const { username, password, email } = req.body;
 
   if (!username || !password || !email) {
@@ -33,9 +39,34 @@ export const register = asyncHandler(async (req, res) => {
     role: newUser.role,
   };
 
+  const { token, hashedToken, tokenExpiry } = await newUser.generateToken();
+
+  newUser.accountVerificationToken = hashedToken;
+  newUser.accountVerifcationExpiry = tokenExpiry;
+
+  const mailOptions = {
+    to: newUser.email,
+    subject: "Welcome to Blogify",
+    mailType: emailVerificationContent(newUser.username, token),
+  };
+
+  await newUser.save();
+
+  try {
+    await sendEmail(mailOptions);
+  } catch (error) {
+    throw new ApiError(500, "Could not send verification email");
+  }
+
   res
     .status(201)
-    .json(new ApiResponse(201, "User created successfully", userToSend));
+    .json(
+      new ApiResponse(
+        201,
+        "User created successfully, please check your email inbox and verify your account",
+        userToSend
+      )
+    );
 });
 
 export const login = asyncHandler(async function (req, res) {
@@ -84,12 +115,357 @@ export const getProfile = asyncHandler(async function (req, res) {
     throw new ApiError(401, "User not found");
   }
 
+  // const userToSend = {
+  //   _id: user._id.toString(),
+  //   email: user.email,
+  //   username: user.username,
+  //   role: user.role,
+  // };
+
+  res.status(200).json(new ApiResponse(200, "Profile Fetched", user));
+});
+
+export const blockUser = asyncHandler(async function (req, res) {
+  const { userIdToBlock } = req.params;
+
+  const userToBlock = await User.findById(userIdToBlock);
+
+  if (!userToBlock) {
+    throw new ApiError(404, "User to block not found");
+  }
+
+  const userId = req.user._id;
+
+  if (userId.toString() === userIdToBlock.toString()) {
+    throw new ApiError(400, "Cannot block yourself");
+  }
+
+  const currentUser = await User.findById(userId);
+
+  if (!currentUser) {
+    throw new ApiError(404, "User not found");
+  }
+
+  if (currentUser?.blockedUsers?.includes(userIdToBlock)) {
+    throw new ApiError(400, "User already blocked");
+  }
+
+  await User.findByIdAndUpdate(
+    userId,
+    { $push: { blockedUsers: userIdToBlock } },
+    { new: true }
+  );
+
+  res.status(200).json(new ApiResponse(200, "User blocked successfully"));
+});
+
+export const unBlockUser = asyncHandler(async function (req, res) {
+  const { userIdToUnblock } = req.params;
+
+  const userToUnBlock = await User.findById(userIdToUnblock);
+
+  if (!userToUnBlock) {
+    throw new ApiError(404, "User to unblock not found");
+  }
+
+  const userId = req.user._id;
+
+  if (userId.toString() === userIdToUnblock.toString()) {
+    throw new ApiError(400, "Cannot unblock yourself");
+  }
+
+  const currentUser = await User.findById(userId);
+
+  if (!currentUser?.blockedUsers?.includes(userIdToUnblock)) {
+    throw new ApiError(404, "User is not blocked");
+  }
+
+  const updatedUser = await User.findByIdAndUpdate(
+    userId,
+    {
+      $pull: {
+        blockedUsers: userIdToUnblock,
+      },
+    },
+    { new: true }
+  );
+  res
+    .status(200)
+    .json(new ApiResponse(200, "User unblock successfully", updatedUser));
+});
+
+export const profileViewers = asyncHandler(async function (req, res) {
+  const { userProfileId } = req.params;
+
+  const userProfile = await User.findById(userProfileId);
+
+  if (!userProfile) {
+    throw new ApiError(404, "User to view profile not found");
+  }
+
+  const userId = req.user._id;
+
+  const currentUser = await User.findById(userId);
+
+  if (!currentUser) {
+    throw new ApiError(404, "User not found");
+  }
+
+  if (!currentUser?.profileviewer?.includes(userProfileId)) {
+    throw new ApiError("You have already viewed this profile");
+  }
+
+  const updatedUser = await User.findByIdAndUpdate(userId, {
+    $push: {
+      profileviewer: userId,
+    },
+  });
+
+  if (!updatedUser) {
+    throw new ApiError(400, "Could not perform action");
+  }
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, "You have successfully viewed profile"));
+});
+
+export const followingUser = asyncHandler(async function (req, res) {
+  const currentUserId = req.user._id;
+  const { userToFollowId } = req.params;
+
+  if (currentUserId.toString() === userToFollowId.toString()) {
+    throw new ApiError(400, "Cannot follow yourself");
+  }
+
+  const userToFollow = await User.findById(userToFollowId);
+  if (!userToFollow) {
+    throw new ApiError(404, "User to follow not found");
+  }
+
+  const currentUser = await User.findById(currentUserId);
+  if (!currentUser) {
+    throw new ApiError(404, "User not found");
+  }
+
+  const alreadyFollowing = currentUser.following.includes(userToFollowId);
+  if (alreadyFollowing) {
+    throw new ApiError(400, "Already following this user");
+  }
+
+  await User.findByIdAndUpdate(
+    currentUserId,
+    {
+      $addToSet: { following: userToFollowId },
+    },
+    { new: true }
+  );
+
+  await User.findByIdAndUpdate(
+    userToFollowId,
+    {
+      $addToSet: { followers: currentUserId },
+    },
+    { new: true }
+  );
+
+  res.status(200).json(new ApiResponse(200, "User followed successfully"));
+});
+
+export const unFollowingUser = asyncHandler(async function (req, res) {
+  const currentUserId = req.user._id;
+  const { userToUnfollowId } = req.params;
+
+  if (currentUserId.toString() === userToUnfollowId.toString()) {
+    throw new ApiError(400, "Cannot unfollow yourself");
+  }
+
+  const userToUnfollow = await User.findById(userToUnfollowId);
+
+  if (!userToUnfollow) {
+    throw new ApiError(404, "User to unfollow not found");
+  }
+
+  const currentUser = await User.findById(currentUserId);
+
+  if (!currentUser) {
+    throw new ApiError(404, "User not found");
+  }
+
+  const alreadyFollowing = currentUser.following.includes(userToUnfollowId);
+
+  if (!alreadyFollowing) {
+    throw new ApiError(400, "Not following this user");
+  }
+
+  await User.findByIdAndUpdate(currentUserId, {
+    $pull: { following: userToUnfollowId },
+  });
+
+  await User.findByIdAndUpdate(userToUnfollowId, {
+    $pull: { followers: currentUserId },
+  });
+
+  res.status(200).json(new ApiResponse(200, "User unfollowed successfully"));
+});
+
+export const forgotPassword = asyncHandler(async function (req, res) {
+  const { email } = req.body;
+
+  if (!email) {
+    throw new ApiError(400, "invalid inputs");
+  }
+
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  if (!user.isVerified) {
+    throw new ApiError(403, "Account not verified");
+  }
+
+  const {
+    resetToken: token,
+    hashedToken,
+    tokenExpiry,
+  } = await user.generateToken();
+
+  user.passwordResetToken = hashedToken;
+  user.passwordResetExpiry = tokenExpiry;
+
+  await user.save();
+
+  const mailOptions = {
+    to: user.email,
+    subject: "Password Reset Request",
+    mailType: forgotPasswordContent(user.username, token),
+  };
+
+  try {
+    await sendEmail(mailOptions);
+  } catch (error) {
+    throw new ApiError(500, "Could not send password reset email");
+  }
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, "Password reset email sent successfully"));
+});
+
+export const resetPassword = asyncHandler(async function (req, res) {
+  const { token } = req.params;
+
+  if (!token) {
+    throw new ApiError(400, "Invalid Token");
+  }
+
+  const { newPassword, confirmPassword } = req.body;
+
+  if (!newPassword || !confirmPassword) {
+    throw new ApiError(400, "Invalid inputs");
+  }
+
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+  const user = await User.findOne({
+    passwordResetToken: hashedToken,
+    passwordResetExpiry: {
+      $gt: Date.now(),
+    },
+  });
+
+  if (!user) {
+    throw new ApiError("Invalid token or token expired");
+  }
+
+  if (!user.isVerified) {
+    throw new ApiError(403, "Account not verified");
+  }
+
+  user.password = confirmPassword;
+  user.passwordResetExpiry = undefined;
+  user.passwordResetToken = undefined;
+
+  await user.save();
+
+  res.status(200).json(new ApiResponse(200, "Password reset successfully"));
+});
+
+export const accountVerifcationEmail = asyncHandler(async function (req, res) {
+  const userId = req.user?._id;
+
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  if (user.isVerified) {
+    throw new ApiError(400, "Account already verified");
+  }
+
+  const { token, hashedToken, tokenExpiry } = await user.generateToken();
+
+  user.accountVerificationToken = hashedToken;
+  user.accountVerifcationExpiry = tokenExpiry;
+
+  const mailOptions = {
+    to: user.email,
+    subject: "Email Verification",
+    mailType: emailVerificationContent(user.username, token),
+  };
+
+  try {
+    await sendEmail(mailOptions);
+  } catch (error) {
+    throw new ApiError(500, "Could not send verification email");
+  }
+
+  await user.save();
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, "Verification email sent successfully"));
+});
+
+export const verifyAccount = asyncHandler(async function (req, res) {
+  const { token } = req.params;
+
+  if (!token) {
+    throw new ApiError(400, "Invalid Token");
+  }
+
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+  const user = await User.findOne({
+    accountVerificationToken: hashedToken,
+    accountVerifcationExpiry: { $gt: Date.now() },
+  });
+
+  if (!user) {
+    throw new ApiError(400, "Invalid token or token expired");
+  }
+
+  if (user.isVerified) {
+    throw new ApiError(400, "Account already verified");
+  }
+
+  user.isVerified = true;
+  user.accountVerificationToken = undefined;
+  user.accountVerifcationExpiry = undefined;
+
+  await user.save();
+
   const userToSend = {
-    _id: user._id.toString(),
-    email: user.email,
+    _id: user._id,
     username: user.username,
+    email: user.email,
     role: user.role,
   };
 
-  res.status(200).json(new ApiResponse(200, "Profile Fetched", { userToSend }));
+  res
+    .status(200)
+    .json(new ApiResponse(200, "Account verified successfully", userToSend));
 });
