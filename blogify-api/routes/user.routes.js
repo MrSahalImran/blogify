@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  accountVerifcationEmail,
   blockUser,
   followingUser,
   forgotPassword,
@@ -10,6 +11,7 @@ import {
   resetPassword,
   unBlockUser,
   unFollowingUser,
+  verifyAccount,
 } from "../controllers/user.controllers.js";
 import { isLoggedIn } from "../middlewares/user.middleware.js";
 
@@ -25,4 +27,7 @@ userRouter.put("/following/:userToFollowId", isLoggedIn, followingUser);
 userRouter.put("/unfollowing/:userToUnfollowId", isLoggedIn, unFollowingUser);
 userRouter.post("/forgot-password", forgotPassword);
 userRouter.post("/reset-password/:token", resetPassword);
+userRouter.put("/account-verification", isLoggedIn, accountVerifcationEmail);
+userRouter.put("/account-verification/:token", isLoggedIn, verifyAccount);
+
 export default userRouter;

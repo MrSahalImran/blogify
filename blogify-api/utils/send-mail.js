@@ -2,7 +2,7 @@ import Mailgen from "mailgen";
 import nodemailer from "nodemailer";
 import { ApiError } from "./api-errors.js";
 
-export const sendEmail = async (to, username, token) => {
+export const sendEmail = async (options) => {
   const mailGenerator = new Mailgen({
     theme: "default",
     product: {
@@ -11,13 +11,11 @@ export const sendEmail = async (to, username, token) => {
     },
   });
 
-  const htmlEmailBody = mailGenerator.generate(
-    forgotPasswordContent(username, token)
-  );
+  const htmlEmailBody = mailGenerator.generate(options.mailType);
 
   const transport = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 587,
+    host: "smtp.mailtrap.io",
+    port: 2525,
     auth: {
       user: process.env.GMAIL_USER,
       pass: process.env.GMAIL_PASS,
@@ -26,8 +24,8 @@ export const sendEmail = async (to, username, token) => {
 
   const mail = {
     from: "help@blogify.com",
-    to: to,
-    subject: "password reset",
+    to: options.to,
+    subject: options.subject,
     html: htmlEmailBody,
   };
 
@@ -39,7 +37,7 @@ export const sendEmail = async (to, username, token) => {
   }
 };
 
-const forgotPasswordContent = (username, passwordResetToken) => {
+export const forgotPasswordContent = (username, passwordResetToken) => {
   return {
     body: {
       name: username,
@@ -53,6 +51,27 @@ const forgotPasswordContent = (username, passwordResetToken) => {
           color: "#ff5349",
           text: "Reset password",
           link: `http://localhost:9080/api/v1/user/reset-password/${passwordResetToken}`,
+        },
+      },
+      outro: "Need help? Just reply to this email!!!.",
+    },
+  };
+};
+
+export const emailVerificationContent = (username, verificationToken) => {
+  return {
+    body: {
+      name: username,
+      intro:
+        "You are receiving this email because you have registered on Blogify.",
+
+      action: {
+        instructions:
+          "Please click the button below or paste the link into your browser to verify your email address",
+        button: {
+          color: "#7ef74eff",
+          text: "Verify Email",
+          link: `http://localhost:9080/api/v1/user/account-verification/${verificationToken}`,
         },
       },
       outro: "Need help? Just reply to this email!!!.",
