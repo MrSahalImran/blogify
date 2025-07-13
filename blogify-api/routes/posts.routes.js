@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  claps,
   createPost,
   deletePostById,
   dislikePost,
@@ -27,5 +28,6 @@ postsRouter.put("/update-post/:id", isLoggedIn, updatePostById);
 postsRouter.delete("/delete-post/:id", isLoggedIn, deletePostById);
 postsRouter.put("/likes/:id", isLoggedIn, likePost);
 postsRouter.put("/dislikes/:id", isLoggedIn, dislikePost);
+postsRouter.put("/claps/:id", isLoggedIn, claps);
 
 export default postsRouter;
