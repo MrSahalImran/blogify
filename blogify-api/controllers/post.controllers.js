@@ -105,3 +105,57 @@ export const updatePostById = asyncHandler(async function (req, res) {
 
   res.status(200).json(new ApiResponse(200, "Post updated successfully", post));
 });
+
+export const likePost = asyncHandler(async function (req, res) {
+  const { id } = req.params;
+
+  const post = await Post.findById(id);
+
+  if (!post) {
+    throw new ApiError(404, "Cannot find post");
+  }
+
+  const userId = req.user._id;
+
+  await Post.findByIdAndUpdate(
+    id,
+    { $addToSet: { likes: userId } },
+    { new: true }
+  );
+
+  post.dislikes = post.dislikes.filter(
+    (dislike) => dislike.toString() !== userId.toString()
+  );
+
+  await post.save();
+
+  res.status(200).json(new ApiResponse(200, "Post liked successfully", post));
+});
+
+export const dislikePost = asyncHandler(async function (req, res) {
+  const { id } = req.params;
+
+  const post = await Post.findById(id);
+
+  if (!post) {
+    throw new ApiError(404, "Cannot find post");
+  }
+
+  const userId = req.user._id;
+
+  await Post.findByIdAndUpdate(
+    id,
+    { $addToSet: { dislikes: userId } },
+    { new: true }
+  );
+
+  post.likes = post.likes.filter(
+    (like) => like.toString() !== userId.toString()
+  );
+
+  await post.save();
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, "Post disliked successfully", post));
+});
