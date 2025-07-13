@@ -7,10 +7,12 @@ import {
   getPostById,
   getPosts,
   likePost,
+  schedulePost,
   updatePostById,
 } from "../controllers/post.controllers.js";
 import {
   checkAccountVerification,
+  filterBlockedUsers,
   isLoggedIn,
 } from "../middlewares/user.middleware.js";
 
@@ -22,12 +24,13 @@ postsRouter.post(
   checkAccountVerification,
   createPost
 );
-postsRouter.get("/get-posts", getPosts);
-postsRouter.get("/get-post/:id", getPostById);
+postsRouter.get("/get-posts", isLoggedIn, filterBlockedUsers, getPosts);
+postsRouter.get("/get-post/:id", filterBlockedUsers, getPostById);
 postsRouter.put("/update-post/:id", isLoggedIn, updatePostById);
 postsRouter.delete("/delete-post/:id", isLoggedIn, deletePostById);
-postsRouter.put("/likes/:id", isLoggedIn, likePost);
-postsRouter.put("/dislikes/:id", isLoggedIn, dislikePost);
-postsRouter.put("/claps/:id", isLoggedIn, claps);
+postsRouter.put("/likes/:id", isLoggedIn, filterBlockedUsers, likePost);
+postsRouter.put("/dislikes/:id", isLoggedIn, filterBlockedUsers, dislikePost);
+postsRouter.put("/claps/:id", isLoggedIn, filterBlockedUsers, claps);
+postsRouter.put("/schedule/:id", isLoggedIn, schedulePost);
 
 export default postsRouter;

@@ -14,8 +14,8 @@ export const sendEmail = async (options) => {
   const htmlEmailBody = mailGenerator.generate(options.mailType);
 
   const transport = nodemailer.createTransport({
-    host: "smtp.mailtrap.io",
-    port: 2525,
+    host: "smtp.gmail.com",
+    port: 587,
     auth: {
       user: process.env.GMAIL_USER,
       pass: process.env.GMAIL_PASS,

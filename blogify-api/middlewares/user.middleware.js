@@ -56,3 +56,19 @@ export const checkAccountVerification = asyncHandler(async function (
 
   next();
 });
+
+export const filterBlockedUsers = asyncHandler(async function (req, res, next) {
+  const loggedInUserId = req.user?._id;
+
+  if (!userId) {
+    throw new ApiError(401, "User not authenticated");
+  }
+
+  const blockedUsers = await User.find({ blockedUsers: loggedInUserId }).select(
+    "_id"
+  );
+
+  const blockedUserIds = blockedUsers.map((user) => user._id);
+  req.blockedUserIds = blockedUserIds;
+  next();
+});
