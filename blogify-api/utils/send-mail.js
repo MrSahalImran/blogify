@@ -6,7 +6,7 @@ export const sendEmail = async (options) => {
   const mailGenerator = new Mailgen({
     theme: "default",
     product: {
-      name: "Blogify",
+      name: "Whiteboard",
       link: "https://test.com",
     },
   });
@@ -14,8 +14,8 @@ export const sendEmail = async (options) => {
   const htmlEmailBody = mailGenerator.generate(options.mailType);
 
   const transport = nodemailer.createTransport({
-    host: "smtp.mailtrap.io",
-    port: 2525,
+    host: "smtp.gmail.com",
+    port: 587,
     auth: {
       user: process.env.GMAIL_USER,
       pass: process.env.GMAIL_PASS,
@@ -23,7 +23,7 @@ export const sendEmail = async (options) => {
   });
 
   const mail = {
-    from: "help@blogify.com",
+    from: "help@whiteboard.com",
     to: options.to,
     subject: options.subject,
     html: htmlEmailBody,
@@ -62,8 +62,7 @@ export const emailVerificationContent = (username, verificationToken) => {
   return {
     body: {
       name: username,
-      intro:
-        "You are receiving this email because you have registered on Blogify.",
+      intro: "You are receiving this email because you have registered .",
 
       action: {
         instructions:
@@ -75,6 +74,41 @@ export const emailVerificationContent = (username, verificationToken) => {
         },
       },
       outro: "Need help? Just reply to this email!!!.",
+    },
+  };
+};
+
+export const eventRegistrationContent = (username, event) => {
+  return {
+    body: {
+      name: username,
+      intro: `You have successfully registered for the event ${event.name}.`,
+      table: {
+        data: [
+          {
+            Event: event.name,
+            Description: event.description,
+            Date: new Date(event.datetime).toLocaleString(),
+          },
+        ],
+        columns: {
+          customWidth: {
+            Event: "30%",
+            Description: "50%",
+            Date: "20%",
+          },
+        },
+      },
+      action: {
+        instructions:
+          "You can join the event using the official platform when it starts.",
+        button: {
+          color: "#0d6efd",
+          text: "View Event Details",
+          link: `http://localhost:3000/api/v1/events/${event._id}`,
+        },
+      },
+      outro: "We're excited to have you there!",
     },
   };
 };
